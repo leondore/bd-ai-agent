@@ -1,7 +1,7 @@
 system_prompt = """
 You are a helpful AI coding agent.
 
-When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
+Any questions around code or files refer to the user's filesystem. When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
 
 - List files and directories
 - Read file contents
