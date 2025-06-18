@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from config import MODEL
+from config import MODEL, FEEDBACK_LIMIT
 from prompts import system_prompt
 from tools import available_functions, call_function
 
@@ -33,35 +33,34 @@ def main():
     config = types.GenerateContentConfig(
         system_instruction=system_prompt, tools=[available_functions]
     )
-    response = client.models.generate_content(
-        model=MODEL, contents=messages, config=config
-    )
 
-    if verbose:
-        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
-        print("Response tokens:", response.usage_metadata.candidates_token_count)
+    final_response = ""
+    feedback_loop = 0
+    while feedback_loop < FEEDBACK_LIMIT:
+        response = client.models.generate_content(
+            model=MODEL, contents=messages, config=config
+        )
 
-    if not response.function_calls:
-        print(response.text)
-        return
+        for candidate in response.candidates:
+            messages.append(candidate.content)
 
-    function_responses = []
-    for function_call_part in response.function_calls:
-        function_call_result = call_function(function_call_part, verbose)
+        if not response.function_calls:
+            final_response = response.text
+            break
 
-        if (
-            not function_call_result.parts
-            or not function_call_result.parts[0].function_response.response
-        ):
-            raise Exception("empty function call result")
+        for function_call_part in response.function_calls:
+            function_call_result = call_function(function_call_part, verbose)
 
-        if verbose:
-            print(f"-> {function_call_result.parts[0].function_response.response}")
+            if (
+                not function_call_result.parts
+                or not function_call_result.parts[0].function_response.response
+            ):
+                raise Exception("empty function call result")
 
-        function_responses.append(function_call_result.parts[0])
+            messages.append(function_call_result)
 
-    if not function_responses:
-        raise Exception("no function responses generated, exiting.")
+    print("Final response:")
+    print(final_response)
 
 
 if __name__ == "__main__":
